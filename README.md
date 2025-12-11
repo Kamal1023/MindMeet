@@ -19,25 +19,25 @@ A production-style full-stack web application for booking mental health counsell
 ## Features
 
 ### Backend Features
-- ✅ Admin can create counselling sessions with counsellor name, start time, total seats, and optional topic
-- ✅ Users can view available sessions
-- ✅ Users can book seats with proper transaction handling
-- ✅ Booking statuses: PENDING, CONFIRMED, FAILED
-- ✅ Prevents overbooking using PostgreSQL transactions and row-level locking
-- ✅ Priority-based queueing system (emergency, urgent, normal)
-- ✅ Clean architecture: routes, controllers, services, models
-- ✅ Input validation using Zod
-- ✅ Standardized API error handling
+-  Admin can create counselling sessions with counsellor name, start time, total seats, and optional topic
+-  Users can view available sessions
+-  Users can book seats with proper transaction handling
+-  Booking statuses: PENDING, CONFIRMED, FAILED
+-  Prevents overbooking using PostgreSQL transactions and row-level locking
+-  Priority-based queueing system (emergency, urgent, normal)
+-  Clean architecture: routes, controllers, services, models
+-  Input validation using Zod
+-  Standardized API error handling
 
 ### Frontend Features
-- ✅ Admin dashboard (`/admin`) for creating and viewing sessions
-- ✅ Public session list (`/`) showing available counselling sessions
-- ✅ Booking page (`/booking/:sessionId`) with seat selection
-- ✅ Visual seat availability indicators
-- ✅ Booking status display (PENDING/CONFIRMED/FAILED)
-- ✅ Mock authentication toggle (admin/user)
-- ✅ Responsive design
-- ✅ Error handling and loading states
+-  Admin dashboard (`/admin`) for creating and viewing sessions
+-  Public session list (`/`) showing available counselling sessions
+-  Booking page (`/booking/:sessionId`) with seat selection
+-  Visual seat availability indicators
+-  Booking status display (PENDING/CONFIRMED/FAILED)
+-  Mock authentication toggle (admin/user)
+-  Responsive design
+-  Error handling and loading states
 
 ## Project Structure
 
