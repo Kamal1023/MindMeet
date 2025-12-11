@@ -3,11 +3,13 @@ import {
   Booking,
   BookingCreateInput,
   BookingStatus,
+  PriorityLevel,
 } from '../models/Booking';
 
 export class BookingService {
   /**
    * Create a booking with transaction and locking to prevent overbooking.
+   * Uses row-level locking and priority-based queueing.
    */
   async createBooking(input: BookingCreateInput): Promise<Booking> {
     const client = await pool.connect();
@@ -15,9 +17,9 @@ export class BookingService {
     try {
       await client.query('BEGIN');
 
-      // Lock the session row to prevent concurrent modifications
+      // Lock the session row to prevent concurrent modifications (use same client)
       const sessionResult = await client.query(
-        `SELECT id, total_seats as "totalSeats"
+        `SELECT id, therapist_name as "therapistName", start_time as "startTime", total_seats as "totalSeats", topic, created_at, updated_at
          FROM sessions
          WHERE id = $1
          FOR UPDATE`,
@@ -25,11 +27,12 @@ export class BookingService {
       );
 
       if (sessionResult.rows.length === 0) {
+        await client.query('ROLLBACK');
         throw new Error('Session not found');
       }
       const session = sessionResult.rows[0];
 
-      // Count already confirmed seats
+      // Count already confirmed seats (using same client)
       const confirmedBookingsResult = await client.query(
         `SELECT COALESCE(SUM(seats_requested), 0) as total
          FROM bookings
@@ -39,7 +42,7 @@ export class BookingService {
       const confirmedSeats = parseInt(confirmedBookingsResult.rows[0].total, 10) || 0;
       const availableSeats = session.totalSeats - confirmedSeats;
 
-      // Determine status
+      // If requested seats exceed available => create PENDING (optional)
       const statusToInsert: BookingStatus =
         input.seatsRequested <= availableSeats ? 'CONFIRMED' : 'PENDING';
 
@@ -75,7 +78,7 @@ export class BookingService {
 
       const createdBooking = insertResult.rows[0];
 
-      // If we confirmed this booking, try to process PENDING queue
+      // If we confirmed this booking, try to process PENDING queue (priority-based)
       if (statusToInsert === 'CONFIRMED') {
         await this.processPendingBookings(client, input.sessionId, session.totalSeats);
       }
@@ -91,13 +94,15 @@ export class BookingService {
   }
 
   /**
-   * Process pending bookings
+   * Process pending bookings and confirm them based on priority and availability.
+   * Uses the same client (transactional).
    */
   private async processPendingBookings(
     client: any,
     sessionId: number,
     totalSeats: number
   ): Promise<void> {
+    // Get current confirmed seats
     const confirmedResult = await client.query(
       `SELECT COALESCE(SUM(seats_requested), 0) as total
        FROM bookings
@@ -106,8 +111,9 @@ export class BookingService {
     );
     let confirmedSeats = parseInt(confirmedResult.rows[0].total, 10) || 0;
 
+    // Get pending bookings ordered by priority (emergency > urgent > normal) and creation time
     const pendingResult = await client.query(
-      `SELECT id, seats_requested
+      `SELECT id, seats_requested, priority_level
        FROM bookings
        WHERE session_id = $1 AND status = 'PENDING'
        ORDER BY 
@@ -125,6 +131,9 @@ export class BookingService {
       if (confirmedSeats + pending.seats_requested <= totalSeats) {
         await client.query(`UPDATE bookings SET status = 'CONFIRMED' WHERE id = $1`, [pending.id]);
         confirmedSeats += pending.seats_requested;
+      } else {
+        // Not enough seats — mark as FAILED
+        await client.query(`UPDATE bookings SET status = 'FAILED' WHERE id = $1`, [pending.id]);
       }
     }
   }
@@ -156,26 +165,31 @@ export class BookingService {
   }
 
   /**
-   * Get all bookings for a user's email
+   * Get all bookings for a user's email (FIXED: Now joins with Sessions table)
    */
   async getBookingsByUserEmail(userEmail: string): Promise<Booking[]> {
     const query = `
       SELECT 
-        id,
-        session_id as "sessionId",
-        user_id as "userId",
-        user_name as "userName",
-        user_email as "userEmail",
-        seats_requested as "seatsRequested",
-        status,
-        priority_level as "priorityLevel",
-        mood_score as "moodScore",
-        user_note as "userNote",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM bookings
-      WHERE user_email = $1
-      ORDER BY created_at DESC
+        b.id,
+        b.session_id as "sessionId",
+        b.user_id as "userId",
+        b.user_name as "userName",
+        b.user_email as "userEmail",
+        b.seats_requested as "seatsRequested",
+        b.status,
+        b.priority_level as "priorityLevel",
+        b.mood_score as "moodScore",
+        b.user_note as "userNote",
+        b.created_at as "createdAt",
+        b.updated_at as "updatedAt",
+        -- JOINED FIELDS FOR UI
+        s.start_time as "sessionStartTime",
+        s.therapist_name as "therapistName",
+        s.topic as "sessionTopic"
+      FROM bookings b
+      JOIN sessions s ON b.session_id = s.id
+      WHERE b.user_email = $1
+      ORDER BY s.start_time DESC
     `;
     const result = await pool.query(query, [userEmail]);
     return result.rows;
@@ -204,5 +218,34 @@ export class BookingService {
     `;
     const result = await pool.query(query, [id]);
     return result.rows[0] || null;
+  }
+
+  /**
+   * Update booking status (for admin operations)
+   */
+  async updateBookingStatus(id: number, status: BookingStatus): Promise<Booking> {
+    const query = `
+      UPDATE bookings
+      SET status = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING 
+        id,
+        session_id as "sessionId",
+        user_id as "userId",
+        user_name as "userName",
+        user_email as "userEmail",
+        seats_requested as "seatsRequested",
+        status,
+        priority_level as "priorityLevel",
+        mood_score as "moodScore",
+        user_note as "userNote",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `;
+    const result = await pool.query(query, [status, id]);
+    if (result.rows.length === 0) {
+      throw new Error('Booking not found');
+    }
+    return result.rows[0];
   }
 }

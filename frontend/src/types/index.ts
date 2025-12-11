@@ -2,11 +2,15 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
 export type PriorityLevel = 'emergency' | 'urgent' | 'normal';
 export type UserRole = 'admin' | 'user';
 
+export interface User {
+  id: number;
+  email: string;
+  role: UserRole;
+}
+
 export interface Session {
   id: number;
-  // UPDATED: Backend returns 'therapistName'. 
-  // If your UI uses 'counsellorName', you might need to rename it in your React components to 'therapistName'.
-  therapistName: string; 
+  therapistName: string;
   specialization?: string;
   startTime: string;
   totalSeats: number;
@@ -17,13 +21,13 @@ export interface Session {
 
 export interface SessionWithAvailability extends Session {
   availableSeats: number;
-  // UPDATED: Backend returns 'bookedSeats'. This fixes the empty count in Admin Dashboard.
-  bookedSeats: number; 
+  bookedSeats: number;
 }
 
 export interface Booking {
   id: number;
   sessionId: number;
+  userId?: number;
   userName: string;
   userEmail: string;
   seatsRequested: number;
@@ -33,6 +37,11 @@ export interface Booking {
   userNote?: string;
   createdAt: string;
   updatedAt: string;
+  
+  // NEW FIELDS from the Join Query
+  sessionStartTime?: string;
+  therapistName?: string;
+  sessionTopic?: string;
 }
 
 export interface BookingCreateInput {
