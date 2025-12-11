@@ -50,7 +50,7 @@ export default function HomePage() {
           {sessions.map((session) => (
             <div key={session.id} className="session-card">
               <div className="session-header">
-                <h3>{session.counsellorName}</h3>
+                <h3>{session.therapistName}</h3>
                 {session.topic && (
                   <span className="topic-badge">{session.topic}</span>
                 )}

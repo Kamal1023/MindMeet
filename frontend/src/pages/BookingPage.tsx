@@ -150,7 +150,7 @@ export default function BookingPage() {
       </button>
 
       <div className="session-info-card">
-        <h2>{session.counsellorName}</h2>
+        <h2>{session.therapistName}</h2>
         {session.topic && <span className="topic-badge">{session.topic}</span>}
         <p className="session-time">📅 {formatDate(session.startTime)}</p>
         <div className="availability-info">
