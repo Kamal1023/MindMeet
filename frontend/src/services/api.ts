@@ -1,6 +1,7 @@
 import { SessionWithAvailability, Booking, BookingCreateInput, ApiResponse } from '../types';
 
-const API_BASE_URL = '/api';
+// DIRECT LINK TO BACKEND (Bypassing Env Vars for safety)
+const API_BASE_URL = 'https://mindmeet-backend.onrender.com/api';
 
 // Get auth token from localStorage
 function getAuthToken(): string | null {
